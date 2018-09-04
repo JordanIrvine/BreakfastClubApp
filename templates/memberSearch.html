@@ -1,0 +1,101 @@
+{% extends 'layout.html' %}
+<% block head %>
+<html>
+hello Worlds
+</html>
+<% endblock %>
+<html>
+{% block body %}
+<script>
+$(document).ready(function(){
+    $('.search').on('keyup',function(){
+        var searchTerm = $(this).val().toLowerCase();
+        $('#myTable tbody tr').each(function(){
+            var lineStr = $(this).text().toLowerCase();
+            if(lineStr.indexOf(searchTerm) === -1){
+                $(this).hide();
+            }else{
+                $(this).show();
+
+                //disable the enter button in the search bar: https://stackoverflow.com/questions/5629805/disabling-enter-key-for-form
+                $(document).keypress(function(event){
+                    if (event.which == '13') {
+                      event.preventDefault();
+                    }
+                  });
+            }
+        });
+      });
+
+// Row Numbers
+    var table = document.getElementsByTagName('table')[0],
+        rows = table.getElementsByTagName('tr'),
+        text = 'textContent' in document ? 'textContent' : 'innerText';
+
+    for (var i = 1, len = rows.length; i < len; i++){
+        rows[i].children[0][text] = i + ' ' + rows[i].children[0][text];
+    }
+
+
+});
+
+</script>
+
+<bold><center><h3><form action="/search" method=post>
+    <div><input input type=text class="search" placeholder="Type to Search..." pull-center></input>
+</form></h3></center></bold>
+<title>HELLO</title>
+  <a href="/add_member/{{defSess}}" class="btn btn-default">Add Member</a>
+  <hr>
+  <table class="table table-striped" id="myTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <td></td>
+        <th>Join Date</th>
+        <th>Last Breakfast Date</th>
+        <th>Total Visits</th>
+        <th>Visits Til Free Breakfast </th>
+        <th>Author</th>
+        <th></th>
+        <th></th>
+        <th></th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    {% for member in members %}
+    <tbody>
+      <tr>
+        <td></td>
+        <td><a href="/visitSearch/{{member.clientId}}/{{defSess}}">{{member.name}}</a><td>
+        <td>{{member.creationDate}}</td>
+        <td>{{member.BreakfastDate}}</td>
+        <td>{{member.totalBreakfast}}</td>
+        <td>{{member.leftTillFree}}</td>
+        <td>{{member.Author}}</td>
+        <td></td>
+        <td></td>
+        <td>
+          <form action="{{url_for('memberSearch')}}" method="post">
+              <input class="btn btn-success" value="Redeem free breakfast" type="button" display="none"></input>
+          </form>
+        </td>
+        <td>
+          <form name="visitForm" action="{{url_for('add_visit', id=member.clientId, defSess=defSess, addVisitButton=addVisitButton, searchTerm=member.clientId)}}" method="post">
+              <input type="submit" id="visit" class="btn btn-default" value="Add Visit" onclick='addVisitButton':True></input>
+          </form>
+        </td>
+        <td>
+          <form action="{{url_for('delete_member', id=member.clientId, defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)}}" method="post">
+            <input type="hidden" name="_method" value="DELETE"></input>
+            <input type="submit" onclick="return confirm('Are you sure you want to delete this member? All of this members information will be deleted as well!')" value="Delete" class="btn btn-danger"></input>
+          </form>
+        </td>
+      </tr>
+    </tbody>
+    {% endfor %}
+  </table>
+{% endblock %}
+</html>
