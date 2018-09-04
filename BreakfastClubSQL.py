@@ -14,7 +14,7 @@ databases = "databases.db"
 dataBaseName = " "
 
 
- 
+
 #Index
 @app.route('/')
 def index():
@@ -26,9 +26,9 @@ def index():
 		return render_template('home.html')
 
 
-@app.route('/home/<defSess>/<addVisitButton>/<searchTerm>')
+@app.route('/home/<defSess>')
 @app.route('/home/', defaults={'defSess': None})
-def home(defSess, addVisitButton, searchTerm):
+def home(defSess):
 
 	if defSess is None:
 		session.clear()
@@ -42,7 +42,7 @@ def home(defSess, addVisitButton, searchTerm):
 
 			connection.execute("CREATE TABLE IF NOT EXISTS dataBaseNames(name varchar(30) DEFAULT NULL)")
 
-			return render_template('home.html', defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)
+			return render_template('home.html', defSess=defSess)
 
 
 #Register form class
@@ -124,14 +124,9 @@ def login():
 							#session['name'] = name
 							global defSess
 							defSess = session['username']
-							global addVisitButton
-							addVisitButton = False
-							global searchTerm
-							searchTerm = "*"
-
 
 							flash('You are now logged in', 'success')
-							return redirect(url_for('memberSearch', defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm))
+							return redirect(url_for('memberSearch', defSess=defSess))
 						else:
 							error = 'Invalid Login'
 							return render_template('login.html', error=error)
@@ -215,10 +210,10 @@ def logout():
 
 
 #memberSearch (Dashboard)
-@app.route('/memberSearch/', defaults={'defSess': None,'addVisitButton': False, 'searchTerm': None})
-@app.route('/memberSearch/<defSess>/<addVisitButton>/<searchTerm>')
+@app.route('/memberSearch/', defaults={'defSess': None})
+@app.route('/memberSearch/<defSess>')
 @is_logged_in
-def memberSearch(defSess, addVisitButton, searchTerm):
+def memberSearch(defSess):
 
 	if defSess is None:
 		session.clear()
@@ -226,42 +221,21 @@ def memberSearch(defSess, addVisitButton, searchTerm):
 		return render_template('login.html')
 	else:
 		defSess = defSess
-		searchTerm = searchTerm
 
+		createTables(defSess)
 
-		if addVisitButton:
-			print "chocolate moose"
-			createTables(defSess)
+		with sql.connect(defSess) as connection:
+			connection.row_factory = sql.Row
 
-			with sql.connect(defSess) as connection:
-				connection.row_factory = sql.Row
+			cur = connection.execute("SELECT * from members m join visits v where v.breakfastDate = (select max(visits.breakfastDate) from visits where visits.clientId = m.clientId) UNION select * from members m left join visits v on m.clientId = v.clientId where breakfastDate is NULL")
 
-				cur = connection.execute("SELECT * from members m join visits v where v.breakfastDate = (select max(visits.breakfastDate) from visits where visits.clientId = m.clientId) UNION select * from members m left join visits v on m.clientId = v.clientId where breakfastDate is NULL")
+			members = build_dict_list(cur)
+			if members:
+				return render_template('memberSearch.html', members=members,defSess=defSess)
+			else:
+				msg = 'No members Found'
+				return render_template('memberSearch.html', msg=msg, defSess=defSess)
 
-				members = build_dict_list(cur)
-				if members:
-					return render_template('memberSearch.html', members=members,defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)
-				else:
-					msg = 'No members Found'
-					return render_template('memberSearch.html', msg=msg, defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)
-
-		else:
-			print "white squirl"
-			createTables(defSess)
-
-			with sql.connect(defSess) as connection:
-				connection.row_factory = sql.Row
-
-				cur = connection.execute("SELECT * from members WHERE members.clientId = ?", (searchTerm,))
-
-				cur.fetchone()
-
-				members = build_dict_list(cur)
-				if members:
-					return render_template('memberSearch.html', members=members,defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)
-				else:
-					msg = 'No members Found'
-					return render_template('memberSearch.html', msg=msg, defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)
 
 
 # Utility Functions
@@ -300,9 +274,9 @@ def visitSearch(id, defSess):
 
 
 # Add Visit
-@app.route('/add_visit/<string:id>/<defSess>/<searchTerm>', methods=['GET', 'POST'])
+@app.route('/add_visit/<string:id>/<defSess>', methods=['GET', 'POST'])
 @is_logged_in
-def add_visit(id, defSess, searchTerm):
+def add_visit(id, defSess):
 	defSess=defSess
 	if request.method == 'POST':
 
@@ -325,12 +299,10 @@ def add_visit(id, defSess, searchTerm):
 
 			cur.execute("UPDATE members SET leftTillFree = ? WHERE clientId = ?", [leftTillFree, id])
 
-			searchTerm = searchTerm
-
 			flash('Visit created for ', 'success')
 
 
-		return redirect(url_for('memberSearch', defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm))
+		return redirect(url_for('memberSearch', defSess=defSess))
 
 
 def addVisitLeftTillFree(id, defSess):
@@ -340,34 +312,31 @@ def addVisitLeftTillFree(id, defSess):
 		cur = connection.cursor()
 
 		cur.execute("SELECT * FROM members WHERE clientId = ?", [id])
-
-		result = cur.fetchone()
-		numVisits = result[2]
-
-		leftTillFree = 9-numVisits%10
+        result = cur.execute("SELECT * FROM members WHERE clientId = ?", [id])
+        result = cur.fetchone()
+        numVisits = result[2]
+        leftTillFree = 9-numVisits%10
 
 	return leftTillFree
 
 
 
 # Add member
-@app.route('/add_member/<defSess>/<addVisitButton>/<searchTerm>', methods=['GET', 'POST'])
+@app.route('/add_member/<defSess>/', methods=['GET', 'POST'])
 @is_logged_in
-def add_member(defSess, addVisitButton, searchTerm):
-	form = MemberForm(request.form)
-	if request.method == 'POST' and form.validate():
+def add_member(defSess):
+    form = MemberForm(request.form)
 
-		with sql.connect(defSess) as connection:
+    if request.method == 'POST' and form.validate():
+        with sql.connect(defSess) as connection:
+            name = form.name.data
+            author = defSess
+            connection.execute("INSERT INTO members(name, author) VALUES(?,?)",[name,author],)
+            flash('Member Created', 'success')
 
-			name = form.name.data
-			author = defSess
-			connection.execute("INSERT INTO members(name, author) VALUES(?,?)",[name,author],)
+            return redirect(url_for('memberSearch', defSess=defSess))
 
-			flash('Member Created', 'success')
-
-			return redirect(url_for('memberSearch', defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm))
-
-	return render_template('add_member.html', form=form, defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)
+    return render_template('add_member.html', form=form, defSess=defSess)
 
 
 # Delete Visit
@@ -411,12 +380,12 @@ def removeVisitLeftTillFree(id, defSess):
 	return leftTillFree
 
 #Delete a member
-@app.route('/delete_member/<string:id>/<defSess>/<addVisitButton>/<searchTerm>', methods=['POST'])
+@app.route('/delete_member/<string:id>/<defSess>', methods=['POST'])
 @is_logged_in
-def delete_member(id, defSess, addVisitButton, searchTerm):
+def delete_member(id, defSess):
 	defSess=defSess
 	addVisitButton=addVisitButton
-	searchTerm=searchTerm
+
 	with sql.connect(defSess) as connection:
 		# Create cursor
 		cur = connection.cursor()
@@ -430,7 +399,7 @@ def delete_member(id, defSess, addVisitButton, searchTerm):
 
 		flash('Member Deleted', 'success')
 
-		return redirect(url_for('memberSearch', defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm))
+		return redirect(url_for('memberSearch', defSess=defSess))
 
 if __name__ == '__main__':
 	app.run(debug=True)

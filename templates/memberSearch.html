@@ -83,12 +83,12 @@ $(document).ready(function(){
           </form>
         </td>
         <td>
-          <form name="visitForm" action="{{url_for('add_visit', id=member.clientId, defSess=defSess, addVisitButton=addVisitButton, searchTerm=member.clientId)}}" method="post">
+          <form name="visitForm" action="{{url_for('add_visit', id=member.clientId, defSess=defSess)}}" method="post">
               <input type="submit" id="visit" class="btn btn-default" value="Add Visit" onclick='addVisitButton':True></input>
           </form>
         </td>
         <td>
-          <form action="{{url_for('delete_member', id=member.clientId, defSess=defSess, addVisitButton=addVisitButton, searchTerm=searchTerm)}}" method="post">
+          <form action="{{url_for('delete_member', id=member.clientId, defSess=defSess)}}" method="post">
             <input type="hidden" name="_method" value="DELETE"></input>
             <input type="submit" onclick="return confirm('Are you sure you want to delete this member? All of this members information will be deleted as well!')" value="Delete" class="btn btn-danger"></input>
           </form>
